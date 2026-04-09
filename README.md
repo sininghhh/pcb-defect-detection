@@ -1,6 +1,8 @@
 # A PCB Defect Detection System Based on YOLOv11
 
 This repository contains the implementation of a PCB defect detection system based on YOLOv11, including model training, ONNX deployment, Raspberry Pi inference, and Grad-CAM visualization.
+## 🔍 Dataset Available
+Dataset is hosted on Kaggle (see below)
 
 ---
 
@@ -146,3 +148,87 @@ The system is capable of:
 ## 📜 License
 
 This project is intended for academic and research purposes only.
+## 📦 Dataset
+
+The dataset used in this project is publicly available on Kaggle:
+
+🔗 https://www.kaggle.com/datasets/huemon/missing-hole
+
+---
+
+## 📄 Dataset Description
+
+This dataset contains PCB (Printed Circuit Board) images with **missing hole defects** for object detection tasks.
+Annotations are provided in **YOLO format**, making it directly usable for training models such as YOLOv5, YOLOv8, and YOLOv11.
+
+---
+
+## 📁 Dataset Structure
+
+```
+dataset/
+ ├── images/
+ │    ├── train/
+ │    ├── val/
+ ├── labels/
+ │    ├── train/
+ │    ├── val/
+ └── data.yaml
+```
+
+---
+
+## 🚀 How to Download Dataset
+
+### Method 1: Using Kaggle CLI (Recommended)
+
+Install Kaggle API:
+
+```
+pip install kaggle
+```
+
+Download dataset:
+
+```
+kaggle datasets download -d huemon/missing-hole
+```
+
+Unzip dataset:
+
+```
+unzip missing-hole.zip
+```
+
+---
+
+### Method 2: Manual Download
+
+Click the link below and download manually:
+
+👉 https://www.kaggle.com/datasets/huemon/missing-hole
+
+---
+
+## ⚠️ Notes
+
+* This dataset is **not stored in this GitHub repository** due to size limitations.
+* Please download it from Kaggle before training.
+* Ensure correct path configuration in `data.yaml` before training.
+
+---
+
+## 🧠 Usage with YOLO
+
+Example training command:
+
+```
+yolo train data=dataset/data.yaml model=yolov11n.pt epochs=100 imgsz=640
+```
+
+---
+
+## 📌 Citation (Optional)
+
+If you use this dataset, please cite or acknowledge the author.
+
