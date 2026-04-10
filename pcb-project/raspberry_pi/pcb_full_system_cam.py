@@ -2,9 +2,8 @@ import cv2
 import numpy as np
 import onnxruntime as ort
 import sys
-import os
 import time
-import requests  # HTTP上传
+import requests
 
 # =============================
 # 类别
@@ -19,12 +18,13 @@ CLASS_NAMES = [
 ]
 
 # =============================
-# PC地址（HTTP）
+# PC地址
 # =============================
-PC_URL = "http://10.38.166.71:5000/upload"
+PC_URL = "http://10.104.88.87:5000/upload"
+#PC_URL = "http://10.38.166.71:5000/upload"
 
 # =============================
-# ONNX模型
+# 加载模型
 # =============================
 MODEL_PATH = sys.argv[1]
 
@@ -39,6 +39,18 @@ input_name = session.get_inputs()[0].name
 IMG_SIZE = session.get_inputs()[0].shape[2]
 
 print("Model input size:", IMG_SIZE)
+
+# =============================
+# 中心裁剪（正方形）
+# =============================
+def center_crop(img):
+    h, w = img.shape[:2]
+    size = min(h, w)
+
+    start_x = (w - size) // 2
+    start_y = (h - size) // 2
+
+    return img[start_y:start_y+size, start_x:start_x+size]
 
 # =============================
 # Letterbox
@@ -63,6 +75,7 @@ def letterbox(img, size):
 # 预处理
 # =============================
 def preprocess(img):
+    img = center_crop(img)
     img, scale, dx, dy = letterbox(img, IMG_SIZE)
 
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -124,15 +137,16 @@ def postprocess(pred, w, h, scale, dx, dy):
     return results
 
 # =============================
-# 摄像头
+# 摄像头（关键修复）
 # =============================
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
 
-# 👉 放大窗口（解决你说的太小问题）
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 640)
+cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
 cv2.namedWindow("Camera", cv2.WINDOW_NORMAL)
 cv2.namedWindow("Detection", cv2.WINDOW_NORMAL)
-cv2.resizeWindow("Camera", 960, 720)
-cv2.resizeWindow("Detection", 960, 720)
 
 print("\nS: detect+save | A: upload | Q: quit\n")
 
@@ -142,28 +156,34 @@ while True:
 
     ret, frame = cap.read()
     if not ret:
+        print("Camera read failed")
         break
 
-    cv2.imshow("Camera", frame)
+    # ⭐ 正方形显示
+    square = center_crop(frame)
+    square = cv2.resize(square, (720, 720))
+    cv2.imshow("Camera", square)
 
     key = cv2.waitKey(1) & 0xFF
 
     # =============================
-    # S：检测 + 保存（绝不会上传）
+    # 检测
     # =============================
     if key == ord('s'):
 
-        print(">>> Detect + Save (NO upload)")
+        print(">>> Detect")
 
         img, scale, dx, dy = preprocess(frame)
 
         outputs = session.run(None, {input_name: img})
         pred = outputs[0]
 
-        h, w = frame.shape[:2]
+        cropped = center_crop(frame)
+        h, w = cropped.shape[:2]
+
         boxes = postprocess(pred, w, h, scale, dx, dy)
 
-        result = frame.copy()
+        result = cropped.copy()
 
         for x1, y1, x2, y2, score, cls_id in boxes:
             name = CLASS_NAMES[cls_id]
@@ -174,9 +194,9 @@ while True:
                         cv2.FONT_HERSHEY_SIMPLEX,
                         0.6, (0,255,0), 2)
 
-        # 放大显示
-        big = cv2.resize(result, (960, 720))
-        cv2.imshow("Detection", big)
+        # ⭐ 强制正方形显示
+        result_show = cv2.resize(result, (720, 720))
+        cv2.imshow("Detection", result_show)
 
         filename = f"/home/pi/pcb_project/capture_{int(time.time())}.jpg"
         cv2.imwrite(filename, frame)
@@ -186,14 +206,12 @@ while True:
         print("Saved:", filename)
 
     # =============================
-    # A：上传（唯一上传入口）
+    # 上传
     # =============================
     elif key == ord('a'):
 
-        print(">>> Upload triggered")
-
         if last_saved is None:
-            print("⚠️ 先按 S 拍照")
+            print("⚠️ 先按 S")
             continue
 
         try:
@@ -201,16 +219,15 @@ while True:
                 files = {'file': f}
                 response = requests.post(PC_URL, files=files)
 
-            print("✅ Upload success:", response.text)
+            print("Upload:", response.text)
 
         except Exception as e:
-            print("❌ Upload failed:", e)
+            print("Upload failed:", e)
 
     # =============================
-    # Q：退出
+    # 退出
     # =============================
     elif key == ord('q'):
-        print("Exit")
         break
 
 cap.release()
